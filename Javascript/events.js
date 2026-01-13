@@ -46,53 +46,50 @@ export function setupHeroNav(animeListObj) {
 
 // Search setup (replaces trending cards only)
 export function setupSearch(animeListObj) {
-  let debounceTimer;
+  searchInput.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return; // only continue if Enter is pressed
 
-  searchInput.addEventListener("input", async () => {
     const query = searchInput.value.trim();
+    
+    // If input is empty, reset hero + trending
+    if (!query) {
+      animeListObj.currentPage = 1;
+      animeListObj.currentHeroIndex = 0;
+      
+      renderLoading();
+      animeListObj.list = await fetchAnime(animeListObj.currentPage);
+      renderAnime(animeListObj.list);
 
-    clearTimeout(debounceTimer);
+      if (animeListObj.list.length > 0) updateHero(animeListObj.list[0], animeListObj.list);
+      return;
+    }
 
-    debounceTimer = setTimeout(async () => {
-      if (!query) {
-        // Empty search → show trending again
-        animeListObj.currentPage = 1;
-        animeListObj.currentHeroIndex = 0;
+    // Show loading for search
+    renderLoadMoreLoading();
 
-        renderLoadMoreLoading();
-        animeListObj.list = await fetchAnime(animeListObj.currentPage);
+    try {
+      const res = await fetch(
+        `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=10`
+      );
+      const data = await res.json();
+      const results = data.data;
+
+      animeListObj.list = results;
+      animeListObj.currentPage = 1;
+      animeListObj.currentHeroIndex = 0;
+
+      if (results.length > 0) {
         renderAnime(animeListObj.list);
-
-        if (animeListObj.list.length > 0) updateHero(animeListObj.list[0], animeListObj.list);
-        return;
+        updateHero(results[0], animeListObj.list);
+      } else {
+        cardsContainer.innerHTML = `<p style="color:white; margin-left:2vw;">No results found for "${query}".</p>`;
+        heroTitle.textContent = "No anime found";
+        heroDesc.textContent = "";
+        heroImg.src = "#";
       }
-
-      // Search mode
-      renderLoadMoreLoading();
-
-      try {
-        const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=10`);
-        const data = await res.json();
-        const results = data.data;
-
-        animeListObj.list = results;
-        animeListObj.currentPage = 1;
-        animeListObj.currentHeroIndex = 0;
-
-        if (results.length > 0) {
-          renderAnime(results);
-          updateHero(results[0], results);
-        } else {
-          cardsContainer.innerHTML = `<p style="color:white; margin-left:2vw;">No results found for "${query}".</p>`;
-          heroTitle.textContent = "No anime found";
-          heroDesc.textContent = "";
-          heroImg.src = "#";
-        }
-
-      } catch (err) {
-        console.error("Search failed:", err);
-        cardsContainer.innerHTML = `<p style="color:white; margin-left:2vw;">Search failed. Try again later.</p>`;
-      }
-    }, 500);
+    } catch (error) {
+      console.error("Search failed:", error);
+      cardsContainer.innerHTML = `<p style="color:white; margin-left:2vw;">Search failed. Try again later.</p>`;
+    }
   });
 }
