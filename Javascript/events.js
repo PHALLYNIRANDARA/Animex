@@ -63,88 +63,120 @@ export function setupHeroNav(animeListObj) {
 
 // Search setup (replaces trending cards only)
 export function setupSearch(animeListObj) {
+  const heroSection = document.querySelector(".hero-section");
+  const trendingSection = document.querySelector(".trending-section");
+  const searchSection = document.querySelector(".search-section");
+  const searchCardsContainer = document.querySelector(".search-cards-container");
+  const searchMsg = document.getElementById("search-msg");
+  const searchQuerySpan = document.getElementById("search-query");
+
+  // Create Load More button inside search section
+  let searchLoadMoreBtn = searchSection.querySelector(".searchLoadMoreBtn");
+  if (!searchLoadMoreBtn) {
+    searchLoadMoreBtn = document.createElement("button");
+    searchLoadMoreBtn.textContent = "Load More";
+    searchLoadMoreBtn.classList.add("trendingBtn", "searchLoadMoreBtn");
+    searchSection.appendChild(searchLoadMoreBtn);
+  }
+
+  let currentQuery = ""; // store the active search query
+
+  // Search on Enter
   searchInput.addEventListener("keydown", async (e) => {
-    if (e.key !== "Enter") return; // only proceed on Enter
+    if (e.key !== "Enter") return;
 
     const query = searchInput.value.trim();
+    currentQuery = query;
+    animeListObj.currentPage = 1; // reset page for new search
+    searchLoadMoreBtn.disabled = false;
+    searchLoadMoreBtn.textContent = "Load More";
 
-    // DOM references
-    const heroSection = document.querySelector(".hero-section");
-    const trendingSection = document.querySelector(".trending-section");
-    const searchSection = document.querySelector(".search-section");
-    const searchMsg = document.getElementById("search-msg");
-    const searchCardsContainer = document.querySelector(
-      ".search-cards-container"
-    );
-    const searchQuerySpan = document.getElementById("search-query");
+    // Show/hide sections
+    heroSection.style.display = query ? "none" : "flex";
+    trendingSection.style.display = query ? "none" : "block";
+    searchSection.style.display = query ? "flex" : "none";
+
     searchQuerySpan.textContent = query;
+    searchCardsContainer.innerHTML = "";
 
-    // If input is empty, reset hero + trending
-    if (!query) {
-      heroSection.style.display = "flex";
-      trendingSection.style.display = "block";
-      searchSection.style.display = "none";
+    renderLoadMoreLoading();
 
-      animeListObj.currentPage = 1;
-      animeListObj.currentHeroIndex = 0;
-
-      renderLoading();
-      animeListObj.list = await fetchAnime(animeListObj.currentPage);
-      renderAnime(animeListObj.list);
-
-      if (animeListObj.list.length > 0)
-        updateHero(animeListObj.list[0], animeListObj.list);
-
-      return;
-    }
-
-    // Hide hero + trending, show search section
-    heroSection.style.display = "none";
-    trendingSection.style.display = "none";
-    searchSection.style.display = "block";
-
-    searchMsg.textContent = `Search results for: "${query}"`;
-    searchCardsContainer.innerHTML = ""; // clear previous results
-
-    renderLoadMoreLoading(); // optional loading placeholder
+    if (!query) return;
 
     try {
-      const res = await fetch(
-        `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=10`
-      );
+      const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=10&page=1`);
       const data = await res.json();
       const results = data.data;
 
       animeListObj.list = results;
-      animeListObj.currentPage = 1;
-      animeListObj.currentHeroIndex = 0;
 
-      if (results.length > 0) {
-        // Render search results
-        results.forEach((anime) => {
-          const card = document.createElement("div");
-          card.classList.add("anime-card");
-          card.innerHTML = `
-            <div class="anime-image">
-              <img src="${anime.images.jpg.image_url}" alt="${anime.title}" />
-            </div>
-            <div class="anime-title">${anime.title}</div>
-            <div class="anime-genre">${anime.type ?? "N/A"}</div>
-          `;
-          searchCardsContainer.appendChild(card);
-
-          // Optional: click updates hero
-          card.addEventListener("click", () => updateHero(anime, results));
-        });
-
-        // Update hero to first search result (optional, if you want top card preview)
-        updateHero(results[0], results);
-      } else {
+      if (results.length === 0) {
         searchCardsContainer.innerHTML = `<p style="color:white;">No results found for "${query}".</p>`;
+        searchLoadMoreBtn.style.display = "none";
+        return;
+      } else {
+        searchLoadMoreBtn.style.display = "block"; // show button if results exist
       }
+
+      // Render results
+      results.forEach(anime => {
+        const card = document.createElement("div");
+        card.classList.add("anime-card");
+        card.innerHTML = `
+          <div class="anime-image">
+            <img src="${anime.images.jpg.image_url}" alt="${anime.title}" />
+          </div>
+          <div class="anime-title">${anime.title}</div>
+          <div class="anime-genre">${anime.type ?? "N/A"}</div>
+        `;
+        card.addEventListener("click", () => updateHero(anime, animeListObj.list));
+        searchCardsContainer.appendChild(card);
+      });
+
+      // Update hero to first search result
+      updateHero(results[0], results);
+
     } catch (err) {
       console.error(err);
       searchCardsContainer.innerHTML = `<p style="color:white;">Search failed. Try again.</p>`;
+    }
+  });
+
+  // Load More button click inside setupSearch
+  searchLoadMoreBtn.addEventListener("click", async () => {
+    if (!currentQuery) return;
+
+    animeListObj.currentPage++;
+    renderLoadMoreLoading();
+
+    try {
+      const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(currentQuery)}&limit=10&page=${animeListObj.currentPage}`);
+      const data = await res.json();
+      const newResults = data.data;
+
+      if (newResults.length === 0) {
+        searchLoadMoreBtn.disabled = true;
+        searchLoadMoreBtn.textContent = "No more results";
+        return;
+      }
+
+      animeListObj.list = animeListObj.list.concat(newResults);
+
+      newResults.forEach(anime => {
+        const card = document.createElement("div");
+        card.classList.add("anime-card");
+        card.innerHTML = `
+          <div class="anime-image">
+            <img src="${anime.images.jpg.image_url}" alt="${anime.title}" />
+          </div>
+          <div class="anime-title">${anime.title}</div>
+          <div class="anime-genre">${anime.type ?? "N/A"}</div>
+        `;
+        card.addEventListener("click", () => updateHero(anime, animeListObj.list));
+        searchCardsContainer.appendChild(card);
+      });
+    } catch (err) {
+      console.error(err);
     }
   });
 }

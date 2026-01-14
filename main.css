@@ -412,3 +412,7 @@ ul li .navlink:hover {
   border-radius: 15px;
   display: block;
 }
+.searchLoadMoreBtn {
+  display: block;
+  margin: 20px auto; /* top/bottom spacing + center horizontally */
+}
