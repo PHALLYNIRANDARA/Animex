@@ -47,30 +47,50 @@ export function setupHeroNav(animeListObj) {
 // Search setup (replaces trending cards only)
 export function setupSearch(animeListObj) {
   searchInput.addEventListener("keydown", async (e) => {
-    if (e.key !== "Enter") return; // only continue if Enter is pressed
+    if (e.key !== "Enter") return; // only proceed on Enter
 
     const query = searchInput.value.trim();
-    
+
+    // DOM references
+    const heroSection = document.querySelector(".hero-section");
+    const trendingSection = document.querySelector(".trending-section");
+    const searchSection = document.querySelector(".search-section");
+    const searchMsg = document.getElementById("search-msg");
+    const searchCardsContainer = document.querySelector(".search-cards-container");
+    const searchQuerySpan = document.getElementById("search-query");
+searchQuerySpan.textContent = query;
+
     // If input is empty, reset hero + trending
     if (!query) {
+      heroSection.style.display = "flex";
+      trendingSection.style.display = "block";
+      searchSection.style.display = "none";
+
       animeListObj.currentPage = 1;
       animeListObj.currentHeroIndex = 0;
-      
+
       renderLoading();
       animeListObj.list = await fetchAnime(animeListObj.currentPage);
       renderAnime(animeListObj.list);
 
-      if (animeListObj.list.length > 0) updateHero(animeListObj.list[0], animeListObj.list);
+      if (animeListObj.list.length > 0)
+        updateHero(animeListObj.list[0], animeListObj.list);
+
       return;
     }
 
-    // Show loading for search
-    renderLoadMoreLoading();
+    // Hide hero + trending, show search section
+    heroSection.style.display = "none";
+    trendingSection.style.display = "none";
+    searchSection.style.display = "block";
+
+    searchMsg.textContent = `Search results for: "${query}"`;
+    searchCardsContainer.innerHTML = ""; // clear previous results
+
+    renderLoadMoreLoading(); // optional loading placeholder
 
     try {
-      const res = await fetch(
-        `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=10`
-      );
+      const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=10`);
       const data = await res.json();
       const results = data.data;
 
@@ -79,17 +99,33 @@ export function setupSearch(animeListObj) {
       animeListObj.currentHeroIndex = 0;
 
       if (results.length > 0) {
-        renderAnime(animeListObj.list);
-        updateHero(results[0], animeListObj.list);
+        // Render search results
+        results.forEach((anime) => {
+          const card = document.createElement("div");
+          card.classList.add("anime-card");
+          card.innerHTML = `
+            <div class="anime-image">
+              <img src="${anime.images.jpg.image_url}" alt="${anime.title}" />
+            </div>
+            <div class="anime-title">${anime.title}</div>
+            <div class="anime-genre">${anime.type ?? "N/A"}</div>
+          `;
+          searchCardsContainer.appendChild(card);
+
+          // Optional: click updates hero
+          card.addEventListener("click", () => updateHero(anime, results));
+        });
+
+        // Update hero to first search result (optional, if you want top card preview)
+        updateHero(results[0], results);
+
       } else {
-        cardsContainer.innerHTML = `<p style="color:white; margin-left:2vw;">No results found for "${query}".</p>`;
-        heroTitle.textContent = "No anime found";
-        heroDesc.textContent = "";
-        heroImg.src = "#";
+        searchCardsContainer.innerHTML = `<p style="color:white;">No results found for "${query}".</p>`;
       }
-    } catch (error) {
-      console.error("Search failed:", error);
-      cardsContainer.innerHTML = `<p style="color:white; margin-left:2vw;">Search failed. Try again later.</p>`;
+    } catch (err) {
+      console.error(err);
+      searchCardsContainer.innerHTML = `<p style="color:white;">Search failed. Try again.</p>`;
     }
   });
 }
+
