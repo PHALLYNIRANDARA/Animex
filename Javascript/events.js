@@ -15,6 +15,19 @@ const heroPrev = document.getElementById("heroPrev");
 const heroNext = document.getElementById("heroNext");
 
 /* =======================
+   HELPER: REMOVE LOADERS
+======================= */
+function removeLoadingCards(container) {
+  const cards = container.querySelectorAll(".anime-card");
+  cards.forEach(card => {
+    // loading cards do NOT contain images
+    if (!card.querySelector("img")) {
+      card.remove();
+    }
+  });
+}
+
+/* =======================
    LOGIN BUTTON
 ======================= */
 loginBtn.addEventListener("click", () => {
@@ -34,15 +47,11 @@ export function setupLoadMore(animeListObj) {
     const newAnime = await fetchAnime(animeListObj.currentPage);
 
     // remove loading cards
-    cardsContainer
-      .querySelectorAll(".anime-card")
-      .forEach((card, index) => {
-        if (index >= animeListObj.list.length) card.remove();
-      });
+    removeLoadingCards(cardsContainer);
 
     animeListObj.list = animeListObj.list.concat(newAnime);
 
-    // APPEND new cards (IMPORTANT)
+    // append new cards
     appendAnime(newAnime);
 
     if (newAnime.length > 0) {
@@ -94,7 +103,7 @@ export function setupSearch(animeListObj) {
   const searchCardsContainer = document.querySelector(".search-cards-container");
   const searchQuerySpan = document.getElementById("search-query");
 
-  // Create / get search load more button
+  // create / get search load more button
   let searchLoadMoreBtn = searchSection.querySelector(".searchLoadMoreBtn");
   if (!searchLoadMoreBtn) {
     searchLoadMoreBtn = document.createElement("button");
@@ -126,6 +135,7 @@ export function setupSearch(animeListObj) {
     searchLoadMoreBtn.disabled = false;
     searchLoadMoreBtn.textContent = "Load More";
 
+    // show loading cards
     renderLoadMoreLoading(searchCardsContainer);
 
     try {
@@ -137,7 +147,8 @@ export function setupSearch(animeListObj) {
       const data = await res.json();
       const results = data.data;
 
-      searchCardsContainer.innerHTML = "";
+      // remove loading cards
+      removeLoadingCards(searchCardsContainer);
 
       animeListObj.list = results;
 
@@ -166,6 +177,7 @@ export function setupSearch(animeListObj) {
 
     animeListObj.currentPage++;
 
+    // show loading cards
     renderLoadMoreLoading(searchCardsContainer);
 
     try {
@@ -176,6 +188,9 @@ export function setupSearch(animeListObj) {
       );
       const data = await res.json();
       const newResults = data.data;
+
+      // remove loading cards
+      removeLoadingCards(searchCardsContainer);
 
       if (newResults.length === 0) {
         searchLoadMoreBtn.disabled = true;

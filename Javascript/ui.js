@@ -100,3 +100,15 @@ export function appendAnime(animeArray) {
     cardsContainer.appendChild(newCard);
   });
 }
+
+function removeLoadingCards(container) {
+  const loadingCards = container.querySelectorAll(".anime-card");
+
+  loadingCards.forEach(card => {
+    // loading cards have no <img>
+    if (!card.querySelector("img")) {
+      card.remove();
+    }
+  });
+}
+
